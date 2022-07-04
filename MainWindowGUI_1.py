@@ -218,44 +218,103 @@ class Hauptfenster(QMainWindow):
           print("Winkel2: ")
           print(Winkel2)
           pwm.set_servo_pulsewidth( servoPIN2, servoPositions[Winkel2-1] )
-           
-        #BVK Darstellung
-          
-          AnzWinkel2=len(ListeWinkelAchse1)
-          
-        #subtracted_array=[1,1,1,1,1,1,1,1]
-        #subtracted_array = np.array(subtracted_array)
-          #subtracted_array=subtracted_array.reshape(-1, 1)
-          #subtracted_array = np.tile(subtracted_array, (1, AnzWinkel2))
 
+          AnzWinkel = 11
+          Eoben = []
+          Eunten = []
+          ListeWinkelAchse1 = []
+          ListeWinkelAchse2Sensor = []
 
-        #ListeWinkelAchse1=[0,25,50,75,100,125,150,180]
-        #ListeWinkelAchse1 = np.array(ListeWinkelAchse1)
-          ListeWinkelAchse1=ListeWinkelAchse1*(np.pi/180)
-         # ListeWinkelAchse1 = np.tile(ListeWinkelAchse1, (AnzWinkel2, 1))
+          with open('Sensordaten.csv', 'r') as csvfile:
+              points = csv.reader(csvfile, delimiter=',')
+              for row in points:
+                  Eoben.append(row[0])
+                  Eunten.append(row[1])
+                  ListeWinkelAchse1.append(row[2])
+                  ListeWinkelAchse2Sensor.append(row[3])
 
-        #ListeWinkelAchse2Sensor=[0,25,50,75,100,125,150,180]
-        #ListeWinkelAchse2Sensor = np.array(ListeWinkelAchse2Sensor)
-          ListeWinkelAchse2Sensor=ListeWinkelAchse2Sensor*(np.pi/180)
-          #ListeWinkelAchse2Sensor=ListeWinkelAchse2Sensor.reshape(-1, 1)
-          #ListeWinkelAchse2Sensor = np.tile(ListeWinkelAchse2Sensor, (1, AnzWinkel2))
+          Eoben = np.array(Eoben)
+          # bei allen Variablen entferne ich die Kopfzeile
+          Eoben = np.delete(Eoben, 0)
+          # bei allen Variablen entferne ich jeden 11ten Wert, weil die doppelt gemessen werden
+          Eoben = np.delete(Eoben, np.arange(0, Eoben.size, 11))
 
-          
-          X = subtracted_array * np.sin(ListeWinkelAchse2Sensor) * np.cos(ListeWinkelAchse1)
-          Y = subtracted_array * np.sin(ListeWinkelAchse2Sensor) * np.sin(ListeWinkelAchse1)
-          Z = subtracted_array * np.cos(ListeWinkelAchse2Sensor)
-          #fig = plt.figure()
-         # ax = fig.add_subplot(1,1,1, projection='3d')
-         ## plot = ax.plot_surface(
-           # X, Y, Z, rstride=1, cstride=1, cmap=plt.get_cmap('jet'),
-           # linewidth=0, antialiased=False, alpha=0.5)
+          Eunten = np.array(Eunten)
+          Eunten = np.delete(Eunten, 0)
+          Eunten = np.delete(Eunten, np.arange(0, Eunten.size, 11))
+
+          ListeWinkelAchse1 = np.array(ListeWinkelAchse1)
+          ListeWinkelAchse1 = np.delete(ListeWinkelAchse1, 0)
+          ListeWinkelAchse1 = np.delete(ListeWinkelAchse1, np.arange(0, ListeWinkelAchse1.size, 11))
+
+          ListeWinkelAchse2Sensor = np.array(ListeWinkelAchse2Sensor)
+          ListeWinkelAchse2Sensor = np.delete(ListeWinkelAchse2Sensor, 0)
+          ListeWinkelAchse2Sensor = np.delete(ListeWinkelAchse2Sensor, np.arange(0, ListeWinkelAchse2Sensor.size, 11))
+
+          # Datentyp float zuweisen
+          Eoben = np.asarray(Eoben, dtype=np.float64, order='C')
+          Eunten = np.asarray(Eunten, dtype=np.float64, order='C')
+          ListeWinkelAchse1 = np.asarray(ListeWinkelAchse1, dtype=np.float64, order='C')
+          ListeWinkelAchse2Sensor = np.asarray(ListeWinkelAchse2Sensor, dtype=np.float64, order='C')
+          # ------------------------
+
+          B = []
+          C = []
+          Zeilen = (Eoben.size)
+          print(Zeilen)
+
+          array1 = np.array(Eoben)
+          array2 = np.array(Eunten)
+          subtracted_array = np.subtract(Eoben, Eunten)
+          # subtracted_array = np.abs(subtracted_array)
+          subtracted = list(subtracted_array)
+          print("Subtrahiertes Array: ")
+          print(subtracted)
+
+          # roty
+          for i in range(Zeilen):
+              x = [0, 0, subtracted[i]]
+              print(x)
+              # Gewünschter Rotationswinkel
+              Winkel = np.radians(ListeWinkelAchse1[i])
+              print(Winkel)
+              r = np.array(((np.cos(Winkel), 0, np.sin(Winkel)),
+                            (0, 1, 0),
+                            (-np.sin(Winkel), 0, np.cos(Winkel))))
+              print(r)
+              v = r.dot(x)
+              B = np.append(B, v)
+          print(B)
+
+          B1 = B[0::3]
+          B2 = B[1::3]
+          B3 = B[2::3]
+
+          # rotx
+          for i in range(Zeilen):
+              x = [B1[i], B2[i], B3[i]]
+              # Gewünschter Rotationswinkel
+              Winkel = np.radians(ListeWinkelAchse2Sensor[i])
+              print(Winkel)
+              r = np.array(((1, 0, 0),
+                            (0, np.cos(Winkel), -np.sin(Winkel)),
+                            (0, np.sin(Winkel), np.cos(Winkel))))
+              print(r)
+              v = r.dot(x)
+              C = np.append(C, v)
+          print(C)
+          X = C[0::3]
+          Y = C[1::3]
+          Z = C[2::3]
+          print(x)
 
           ax = plt.figure().add_subplot(projection='3d')
-          plot= ax.quiver(0, 0, 0, X, Y, Z, length=0.1)
-          ax.set_xlim([-500,500])
-          ax.set_ylim([-500,500])
-          ax.set_zlim([-500,500])
+          plot = ax.quiver(0, 0, 0, X, Y, Z, length=0.1)
+          ax.set_xlim([-5, 5])
+          ax.set_ylim([-5, 5])
+          ax.set_zlim([-5, 5])
           plt.show()
+
 
         # wenn das Script auf dem Terminal / der Konsole abgebrochen wird, dann...
         except KeyboardInterrupt:
