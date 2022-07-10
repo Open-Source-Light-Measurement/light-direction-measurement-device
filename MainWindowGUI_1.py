@@ -1,11 +1,12 @@
+#Device for the measurement of light direction
+#status: 10.07.2022
+
 from PyQt5.QtWidgets import QApplication, QMainWindow
 import threading
 from PyQt5 import uic
-
 import sys
 
-#Wichtig vor Start: sudo pigpiod
-
+#This program needs an installtion of pigpiod: sudo pigpiod
 
 import RPi.GPIO as GPIO
 import pigpio
@@ -16,10 +17,6 @@ import smbus
 import time
 import csv
 import matplotlib.pyplot as plt
-import mpl_toolkits.mplot3d.axes3d as axes3d
-
-
-
 
 class Hauptfenster(QMainWindow):
     def __init__(self):
@@ -50,26 +47,20 @@ class Hauptfenster(QMainWindow):
         ListeWinkelAchse2Sensor =[]
         Eoben = []
         Eunten = []
-        WinkelAchse1=[]
-        WinkelAchse2=[]
         Gesamtmatrix=[]
 
-        servoPIN = 18 # der Servomotor wurde an den GPIO Pin 18 angeschlossen
+        servoPIN = 18 # the servos are attached to GPIO Pin 18 and 12
         servoPIN2 = 12
 
-
-
-
-        servoPositions1 = [500,700,930,1100,1300,1500,1700,1900,2100,2300,2500]#Drehung Stab
-        #servoPositions1 = [500,700,900,1100]
+        # Servo angles: 0-180 Degrees -> 500-2500
+        # Angle 0 Degrees and 180 Degrees ist measured two times for verification
+        servoPositions1 = [500,700,930,1100,1300,1500,1700,1900,2100,2300,2500] # Rotation around X-axis
         AnzWinkel1=len(servoPositions1)
-        servoPositions = [500,700,900,1100,1300,1500,1700,1900,2100,2300,2500]#Drehung Photometer
-        #servoPositions = [500,700,900,1100]
-        #0-180 Grad=500-2500
+        servoPositions = [500,700,900,1100,1300,1500,1700,1900,2100,2300,2500] # Rotation around Y-axis
         AnzWinkel=len(servoPositions1)
 
 
-        DEVICE     = 0x23 # Default device I2C address
+        DEVICE     = 0x23 # I2C address
 
         POWER_DOWN = 0x00 # No active state
         POWER_ON   = 0x01 # Power on
@@ -92,7 +83,7 @@ class Hauptfenster(QMainWindow):
         ONE_TIME_LOW_RES_MODE = 0x23
 
         bus = smbus.SMBus(1)  # Rev 2 Pi uses 1
-        bus2 = smbus.SMBus(4)  # Neuen Bus hinzugefügt
+        bus2 = smbus.SMBus(4)  # Activation of additional I2C bus
 
 
         def convertToNumber(data):
@@ -121,105 +112,14 @@ class Hauptfenster(QMainWindow):
 
         def setServoCycle(p, position):
           pwm.set_servo_pulsewidth( servoPIN, position ) ;
-          # eine Pause von 0,5 Sekunden
           time.sleep(1)
           
         def setServoCycle2(p, position):
           pwm.set_servo_pulsewidth( servoPIN2, position ) ;
-          # eine Pause von 0,5 Sekunden
           time.sleep(1)
-              
-        # versuche
 
-        try:
-          
-          pwm = pigpio.pi() 
-          pwm.set_mode(servoPIN, pigpio.OUTPUT)
-          pwm.set_mode(servoPIN2, pigpio.OUTPUT)
-          
-          
-          
-          GPIO.setmode(GPIO.BCM)
-          # setzen des GPIO Pins als Ausgang
-          #GPIO.setup(servoPIN, GPIO.OUT)
-          #GPIO.setup(servoPIN2, GPIO.OUT)
-          p = pwm.set_PWM_frequency( servoPIN, 50 )
-          q = pwm.set_PWM_frequency( servoPIN2, 50 )
-          #p.start(servoPositions[0]) # Initialisierung mit dem ersten Wert aus unserer Liste
-          #q.start(servoPositions[0]) 
-          # eine Endlos Schleife
-          i=0
-          while True:
-            
-            # fuer jeden Wert in der Liste, mache...
-            for pos in servoPositions:
-                if flag == False:
-                    break
-                setServoCycle(p, pos)
-                for x in servoPositions1:    # setzen der Servopostion
-                    if flag == False:
-                        break
-                    setServoCycle2(q, x)
-                    lightLevel=readLight()
-                    lightLevel2=readLight2()
-                    WinkelAchse1=(pos-500)*(0.09)
-                    WinkelAchse2=(x-500)*(0.09)
-                    print("Light Level : " + format(lightLevel,'.2f') + " lx bei Winkel Achse 1: " + format(WinkelAchse1,'.2f') + " Grad und Winkel Achse 2: " + format(WinkelAchse2,'.2f') + " Grad")
-                    print("Light Level Rückseite : " + format(lightLevel2,'.2f') + " lx bei Winkel Achse 1: " + format(WinkelAchse1,'.2f') + " Grad und Winkel Achse 2: " + format(WinkelAchse2,'.2f') + " Grad")
-                    ListeWinkelAchse1=np.append(ListeWinkelAchse1,WinkelAchse1)
-                    ListeWinkelAchse2Sensor=np.append(ListeWinkelAchse2Sensor,WinkelAchse2)
-                    Eoben=np.append(Eoben,lightLevel)
-                    Eunten=np.append(Eunten,lightLevel2)
-                    Gesamtmatrix=[[Eoben],[Eunten],[ListeWinkelAchse1],[ListeWinkelAchse2Sensor]]
-                # durchlaufen der Liste  in umgekehrter Reihenfolge
-            print (Gesamtmatrix)
-            rows=zip(Eoben,Eunten,ListeWinkelAchse1,ListeWinkelAchse2Sensor)
-            with open('Sensordaten.csv', 'w', encoding='UTF8') as f:
-                writer = csv.writer(f)
-                writer.writerow(["Eoben in lx", "Eunten in lx", "Achse1 in Grad", "Achse2 in Grad"])
-                for row in rows:
-                    writer.writerow(row)
-
-            array1 = np.array(Eoben)
-            array2 = np.array(Eunten)
-            subtracted_array = np.subtract(Eoben, Eunten)
-            #subtracted_array = np.abs(subtracted_array)
-            subtracted = list(subtracted_array)
-            print("Subtrahiertes Array: ")
-            print(subtracted)
-
-            max_value = max(subtracted)
-            max_index = subtracted.index(max_value)
-            max_index = max_index + 1
-            print("Max Index: ")
-            print(max_index)
-            print("Maximale Differenz: ")
-            print(max_value)
-            i+=1
-            if i == 1:
-                break
-
-        #Anfahren der dominanten Lichtrichtung
-            #Winkel1 - Achse 1
-          Winkel1= max_index / AnzWinkel1
-          Winkel1=int(Winkel1+1)
-          #Winkel1=(servoPositions1[Winkel1])
-          print("Winkel1: ")
-          print(Winkel1)
-          pwm.set_servo_pulsewidth( servoPIN, servoPositions[Winkel1-1] ) 
-            
-            #Winkel2
-          Winkel2= max_index / AnzWinkel
-          Winkel2=Winkel2-int(Winkel2)
-          Faktor=1/AnzWinkel
-          Winkel2=Winkel2/Faktor
-          Winkel2=int(Winkel2+1)
-          #Winkel2=(servoPositions[Winkel2])
-          print("Winkel2: ")
-          print(Winkel2)
-          pwm.set_servo_pulsewidth( servoPIN2, servoPositions[Winkel2-1] )
-
-          AnzWinkel = 11
+        def viewIDS(): # View Illumination distribution solid
+          AnzWinkel = len(servoPositions1)
           Eoben = []
           Eunten = []
           ListeWinkelAchse1 = []
@@ -234,9 +134,9 @@ class Hauptfenster(QMainWindow):
                   ListeWinkelAchse2Sensor.append(row[3])
 
           Eoben = np.array(Eoben)
-          # bei allen Variablen entferne ich die Kopfzeile
+          # delete heading
           Eoben = np.delete(Eoben, 0)
-          # bei allen Variablen entferne ich jeden 11ten Wert, weil die doppelt gemessen werden
+          # delete every 11th argument from list because 0 Degree and 180 Degrees are measured two times
           Eoben = np.delete(Eoben, np.arange(0, Eoben.size, 11))
 
           Eunten = np.array(Eunten)
@@ -251,7 +151,7 @@ class Hauptfenster(QMainWindow):
           ListeWinkelAchse2Sensor = np.delete(ListeWinkelAchse2Sensor, 0)
           ListeWinkelAchse2Sensor = np.delete(ListeWinkelAchse2Sensor, np.arange(0, ListeWinkelAchse2Sensor.size, 11))
 
-          # Datentyp float zuweisen
+          # data type: float
           Eoben = np.asarray(Eoben, dtype=np.float64, order='C')
           Eunten = np.asarray(Eunten, dtype=np.float64, order='C')
           ListeWinkelAchse1 = np.asarray(ListeWinkelAchse1, dtype=np.float64, order='C')
@@ -266,16 +166,15 @@ class Hauptfenster(QMainWindow):
           array1 = np.array(Eoben)
           array2 = np.array(Eunten)
           subtracted_array = np.subtract(Eoben, Eunten)
-          # subtracted_array = np.abs(subtracted_array)
           subtracted = list(subtracted_array)
           print("Subtrahiertes Array: ")
           print(subtracted)
 
-          # roty
+          # Rotation around Y-axis
           for i in range(Zeilen):
               x = [0, 0, subtracted[i]]
               print(x)
-              # Gewünschter Rotationswinkel
+              # Rotation angle
               Winkel = np.radians(ListeWinkelAchse1[i])
               print(Winkel)
               r = np.array(((np.cos(Winkel), 0, np.sin(Winkel)),
@@ -290,10 +189,10 @@ class Hauptfenster(QMainWindow):
           B2 = B[1::3]
           B3 = B[2::3]
 
-          # rotx
+          # Rotation around X-axis
           for i in range(Zeilen):
               x = [B1[i], B2[i], B3[i]]
-              # Gewünschter Rotationswinkel
+              # Rotation angle
               Winkel = np.radians(ListeWinkelAchse2Sensor[i])
               print(Winkel)
               r = np.array(((1, 0, 0),
@@ -315,14 +214,86 @@ class Hauptfenster(QMainWindow):
           ax.set_zlim([-5, 5])
           plt.show()
 
+        try:
+          
+          pwm = pigpio.pi() 
+          pwm.set_mode(servoPIN, pigpio.OUTPUT)
+          pwm.set_mode(servoPIN2, pigpio.OUTPUT)
+          GPIO.setmode(GPIO.BCM)
+          # set GPIO Pins as output
+          p = pwm.set_PWM_frequency( servoPIN, 50 )
+          q = pwm.set_PWM_frequency( servoPIN2, 50 )
 
-        # wenn das Script auf dem Terminal / der Konsole abgebrochen wird, dann...
+          i=0
+          while True:
+            
+            # do the following for every argument in the list
+            for pos in servoPositions:
+                if flag == False:
+                    break
+                setServoCycle(p, pos)
+                for x in servoPositions1:    # set servo positions
+                    if flag == False:
+                        break
+                    setServoCycle2(q, x)
+                    lightLevel=readLight()
+                    lightLevel2=readLight2()
+                    WinkelAchse1=(pos-500)*(0.09)
+                    WinkelAchse2=(x-500)*(0.09)
+                    print("Light Level : " + format(lightLevel,'.2f') + " lx bei Winkel Achse 1: " + format(WinkelAchse1,'.2f') + " Grad und Winkel Achse 2: " + format(WinkelAchse2,'.2f') + " Grad")
+                    print("Light Level Rückseite : " + format(lightLevel2,'.2f') + " lx bei Winkel Achse 1: " + format(WinkelAchse1,'.2f') + " Grad und Winkel Achse 2: " + format(WinkelAchse2,'.2f') + " Grad")
+                    ListeWinkelAchse1=np.append(ListeWinkelAchse1,WinkelAchse1)
+                    ListeWinkelAchse2Sensor=np.append(ListeWinkelAchse2Sensor,WinkelAchse2)
+                    Eoben=np.append(Eoben,lightLevel)
+                    Eunten=np.append(Eunten,lightLevel2)
+                    Gesamtmatrix=[[Eoben],[Eunten],[ListeWinkelAchse1],[ListeWinkelAchse2Sensor]]
+            print (Gesamtmatrix)
+            rows=zip(Eoben,Eunten,ListeWinkelAchse1,ListeWinkelAchse2Sensor)
+            with open('Sensordaten.csv', 'w', encoding='UTF8') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Eoben in lx", "Eunten in lx", "Achse1 in Grad", "Achse2 in Grad"])
+                for row in rows:
+                    writer.writerow(row)
+
+            array1 = np.array(Eoben)
+            array2 = np.array(Eunten)
+            subtracted_array = np.subtract(Eoben, Eunten)
+            subtracted = list(subtracted_array)
+            print("Subtrahiertes Array: ")
+            print(subtracted)
+
+            max_value = max(subtracted)
+            max_index = subtracted.index(max_value)
+            max_index = max_index + 1
+            print("Max Index: ")
+            print(max_index)
+            print("Maximale Differenz: ")
+            print(max_value)
+            i+=1
+            if i == 1:
+                break
+
+        # Show dominant light direction
+          Winkel1= max_index / AnzWinkel1
+          Winkel1=int(Winkel1+1)
+          print("Winkel1: ")
+          print(Winkel1)
+          pwm.set_servo_pulsewidth( servoPIN, servoPositions[Winkel1-1] ) 
+
+          Winkel2= max_index / AnzWinkel
+          Winkel2=Winkel2-int(Winkel2)
+          Faktor=1/AnzWinkel
+          Winkel2=Winkel2/Faktor
+          Winkel2=int(Winkel2+1)
+          print("Winkel2: ")
+          print(Winkel2)
+          pwm.set_servo_pulsewidth( servoPIN2, servoPositions[Winkel2-1] )
+
+          viewIDS()
+
         except KeyboardInterrupt:
           p.stop()
-          # alle Pins zuruecksetzen
           GPIO.cleanup()
-
-
 
 app= QApplication(sys.argv)
 window=Hauptfenster()
