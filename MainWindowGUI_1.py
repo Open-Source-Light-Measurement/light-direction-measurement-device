@@ -1,5 +1,5 @@
 #Device for the measurement of light direction
-#status: 10.07.2022
+#Status: 15.12.2022
 
 from PyQt5.QtWidgets import QApplication, QMainWindow
 import threading
@@ -12,6 +12,7 @@ import RPi.GPIO as GPIO
 import pigpio
 import time
 import random
+import math
 import numpy as np
 import smbus
 import time
@@ -180,38 +181,52 @@ class Hauptfenster(QMainWindow):
               r = np.array(((np.cos(Winkel), 0, np.sin(Winkel)),
                             (0, 1, 0),
                             (-np.sin(Winkel), 0, np.cos(Winkel))))
-              print(r)
-              v = r.dot(x)
-              B = np.append(B, v)
-          print(B)
 
-          B1 = B[0::3]
-          B2 = B[1::3]
-          B3 = B[2::3]
+              j = r.dot(x)
+              B = np.append(B, j)
 
-          # Rotation around X-axis
-          for i in range(Zeilen):
-              x = [B1[i], B2[i], B3[i]]
-              # Rotation angle
-              Winkel = np.radians(ListeWinkelAchse2Sensor[i])
-              print(Winkel)
-              r = np.array(((1, 0, 0),
-                            (0, np.cos(Winkel), -np.sin(Winkel)),
-                            (0, np.sin(Winkel), np.cos(Winkel))))
-              print(r)
-              v = r.dot(x)
-              C = np.append(C, v)
-          print(C)
+              # The calculation for the rotation around an axis defined by a direction vector uvw and a point abc was taken from:
+              # Murray, G. (2013) Rotation About an Arbitrary Axis in 3 Dimensions, retrieved 15.12.2022 from:
+              # https://sites.google.com/site/glennmurray/glenn-murray-ph-d/rotation-matrices-and-formulas
+
+              B1 = B[0::3]
+              B2 = B[1::3]
+              B3 = B[2::3]
+
+              Achse1 = np.radians(ListeWinkelAchse1[i])
+
+              # direction vector
+              u = 1
+              v = 0
+              w = np.tan(Achse1) * u
+
+              # goes through point
+              a = 0
+              b = 0
+              c = 0
+
+              # angle
+              Achse2 = np.radians(ListeWinkelAchse2Sensor[i])
+
+              L = u ** 2 + v ** 2 + w ** 2
+
+              M = np.array ([[((a*(v**2 + w**2) - u*(b*v + c*w - u*B1[i] - v*B2[i] - w*B3[i]))*(1 - np.cos(Achse2)) + L*B1[i]* np.cos(Achse2) + np.sqrt(L)*(-c*v + b*w - w*B2[i] + v*B3[i]) *np.sin(Achse2))/L], [((b*(u**2 + w**2) - v*(a*u + c*w - u*B1[i] - v*B2[i] - w*B3[i]))*(1 - np.cos (Achse2)) + L*B2[i] * np.cos (Achse2) + np.sqrt(L)*(c*u - a*w + w*B1[i] - u*B3[i]) *np.sin (Achse2))/L], [((c*(u**2 + v**2) - w*(a*u + b*v - u*B1[i] - v*B2[i] - w*B3[i]))*(1 - np.cos (Achse2)) + L*B3[i] *np.cos (Achse2) + np.sqrt(L)*(-b*u + a*v - v*B1[i] + u*B2[i]) *np.sin (Achse2))/L]])
+              M = M.T
+              C = np.append(C, M)
+
+
           X = C[0::3]
           Y = C[1::3]
           Z = C[2::3]
           print(x)
 
           ax = plt.figure().add_subplot(projection='3d')
-          plot = ax.quiver(0, 0, 0, X, Y, Z, length=0.1)
-          ax.set_xlim([-5, 5])
-          ax.set_ylim([-5, 5])
-          ax.set_zlim([-5, 5])
+          plot = ax.quiver(0, 0, 0, X, Y, Z, length=1)
+          ax.set_xlim([max(Z) * -1, max(Z)])
+          ax.set_ylim([max(Z) * -1, max(Z)])
+          ax.set_zlim([max(Z) * -1, max(Z)])
+          plt.xlabel("x")
+          plt.ylabel("y")
           plt.show()
 
         try:
