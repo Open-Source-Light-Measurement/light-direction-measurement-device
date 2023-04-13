@@ -234,7 +234,6 @@ class Hauptfenster(QMainWindow):
           pwm = pigpio.pi() 
           pwm.set_mode(servoPIN, pigpio.OUTPUT)
           pwm.set_mode(servoPIN2, pigpio.OUTPUT)
-          GPIO.setmode(GPIO.BCM)
           # set GPIO Pins as output
           p = pwm.set_PWM_frequency( servoPIN, 50 )
           q = pwm.set_PWM_frequency( servoPIN2, 50 )
